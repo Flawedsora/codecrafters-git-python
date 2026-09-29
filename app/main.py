@@ -113,6 +113,27 @@ def writetree(base="."):
     return tree_hash
 
 
+def createCommit(tree_sha, parent_sha, message):
+    content = (
+        f"tree {tree_sha}\n"
+        f"parent {parent_sha}\n"
+        f"author John Doe <john@example.com> 1234567890 +0000\n"
+        f"committer John Doe <john@example.com> 1234567890 +0000\n"
+        f"\n"
+        f"{message}\n"
+    )
+    size = len(content)
+    object_data = f"commit {size}\0".encode() + content.encode()
+    sha = hashlib.sha1(object_data).hexdigest()
+    # now put this at correct location
+    compressed_data = zlib.compress(object_data)
+    path = f".git/objects/{sha[:2]}/{sha[2:]}"
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb") as f:
+        f.write(compressed_data)
+    print(sha)
+
+
 def main():
     print("Logs from your program will appear here!", file=sys.stderr)
 
@@ -134,7 +155,11 @@ def main():
         lstree(fflag, tree_sha)
     elif command == "write-tree":
         print(writetree("."))
-
+    elif command == "commit-tree":
+        tree_sha = sys.argv[2]
+        parent_sha = sys.argv[4]
+        message = sys.argv[6]
+        createCommit(tree_sha, parent_sha, message)
     else:
         raise RuntimeError(f"Unknown command #{command}")
 

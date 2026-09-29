@@ -47,7 +47,7 @@ def hashobject(flag, f):
     # we want compressed data at this path
     compressed_data = zlib.compress(store)
     # we first make directory
-    os.mkdir(".git/objects/" + directory)
+    os.makedirs(".git/objects/" + directory, exist_ok=True)
     with open(path, "wb") as file:
         file.write(compressed_data)
     return hasher.hexdigest()
@@ -74,6 +74,45 @@ def lstree(flag, treeshaVal):
         i = null + 21
 
 
+def writetree(base="."):
+    # fxn return hash
+    entries = []
+    items = sorted(os.listdir(base))
+    for item in items:
+        if item == ".git":
+            continue
+        full_path = os.path.join(base, item)
+        if os.path.isfile(full_path):
+            mode = "100644"
+            hVal = hashobject("-w", full_path)
+        elif os.path.isdir(full_path):
+            mode = "40000"
+            hVal = writetree(full_path)
+        else:
+            continue
+        raw_hash = bytes.fromhex(hVal)
+        entry = mode.encode() + b" " + item.encode() + b"\0" + raw_hash
+        entries.append(entry)
+    # All entries of this directory are collected now
+    tree_content = b"".join(entries)
+    # Header based on size of tree content
+    size = len(tree_content)
+    header = f"tree {size}\0".encode()
+    # Complete Git tree object
+    store = header + tree_content
+    # SHA-1 of complete object
+    tree_hash = hashlib.sha1(store).hexdigest()
+    # Store in .git/objects/XX/YYYY...
+    directory = tree_hash[:2]
+    filename = tree_hash[2:]
+    object_dir = os.path.join(".git", "objects", directory)
+    os.makedirs(object_dir, exist_ok=True)
+    path = os.path.join(object_dir, filename)
+    with open(path, "wb") as f:
+        f.write(zlib.compress(store))
+    return tree_hash
+
+
 def main():
     print("Logs from your program will appear here!", file=sys.stderr)
 
@@ -93,6 +132,9 @@ def main():
         fflag = sys.argv[2]
         tree_sha = sys.argv[3]
         lstree(fflag, tree_sha)
+    elif command == "write-tree":
+        print(writetree("."))
+
     else:
         raise RuntimeError(f"Unknown command #{command}")
 

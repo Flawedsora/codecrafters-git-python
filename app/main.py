@@ -4,9 +4,9 @@ import sys
 import zlib
 
 
-def getVals(shaVal):
-    directory = shaVal[0:2]
-    file = shaVal[2:]
+def getVals(blobshaVal):
+    directory = blobshaVal[0:2]
+    file = blobshaVal[2:]
     return (directory, file)
 
 
@@ -19,10 +19,10 @@ def init():
     print("Initialized git directory")
 
 
-def catfile(flag, shaVal):
+def catfile(flag, blobshaVal):
     if flag != "-p":
         raise ValueError("flag is not -p")
-    (directory, file) = getVals(shaVal)
+    (directory, file) = getVals(blobshaVal)
     filePath = ".git/objects/" + directory + "/" + file
     with open(filePath, "rb") as file:
         blob_data = file.read()
@@ -53,6 +53,27 @@ def hashobject(flag, f):
     return hasher.hexdigest()
 
 
+def lstree(flag, treeshaVal):
+    if flag != "--name-only":
+        raise ValueError("flag is not --name-only")
+    (directory, file) = getVals(treeshaVal)
+    filePath = ".git/objects/" + directory + "/" + file
+    with open(filePath, "rb") as file:
+        blob_data = file.read()
+    decompressed = zlib.decompress(blob_data)
+    header, entries = decompressed.split(b"\x00", 1)
+    obj_type, size = header.split(b" ")
+    i = 0
+    while i < len(entries):
+        null = entries.index(b"\x00", i)
+        mode_name = entries[i:null]
+        mode, name = mode_name.split(b" ", 1)
+        # convert those raw bytes to print so first convert to string TQ ai
+        print(name.decode())
+        sha = entries[null + 1 : null + 1 + 20]
+        i = null + 21
+
+
 def main():
     print("Logs from your program will appear here!", file=sys.stderr)
 
@@ -68,6 +89,10 @@ def main():
         file = sys.argv[3]
         hashval = hashobject(flag, file)
         print(hashval)
+    elif command == "ls-tree":
+        fflag = sys.argv[2]
+        tree_sha = sys.argv[3]
+        lstree(fflag, tree_sha)
     else:
         raise RuntimeError(f"Unknown command #{command}")
 
